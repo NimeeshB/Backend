@@ -18,4 +18,12 @@ app.use(express.static("public")) //This middleware serves static files (like im
 //  How it works: When a request is made for a static asset, Express will look in the public directory to find and serve the file. For example, if you have a file public/styles.css, it would be accessible via http://yourdomain.com/styles.css.
 
 app.use(cookieParser())
-export default {app}
+
+//routes import 
+import userRouter from './routes/user.routes.js'
+
+//routes declaration
+app.use("/users",userRouter);// http://localhost:8000/users request aayi toh userRouter invoke hoga
+
+
+export default app;
