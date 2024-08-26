@@ -21,16 +21,30 @@ const registerUser = asyncHandler(async(req,res) => { //express k through likhte
     console.log("req.body: ", req.body)
 
     // validation - not empty
-    if ([fullName,email,password,userName].some((field) => field?.field.trim() == ""))
-        {
-        throw new ApiError(400,  `${field} is required`)
+    const fields = [
+        { name: "Full Name", value: fullName },
+        { name: "Email", value: email },
+        { name: "Password", value: password },
+        { name: "Username", value: userName }
+    ];
+    
+    // Check if any field is undefined or an empty string
+    const emptyField = fields.find(field => !field.value || (typeof field.value === 'string' && field.value.trim() === ""));
+    
+    if (emptyField) {
+        throw new ApiError(400, `${emptyField.name} is required`);
     }
+    
+    // if ([fullName,email,password,userName,password].some((field) => field?.field.trim() === ""))
+    //     {
+    //     throw new ApiError(400,  `${field} is required`)
+    // }
 
     // check if user already exists: username, email
     //ye find karega ki username or email already exist or not aur woh return karega
     //agar existed user mila toh aage proceed hi nahi karna hai
-    const existedUser = User.findOne({
-        $or: [{ username }, { email }] // jitni values check karni hai yahape daldo
+    const existedUser = await User.findOne({
+        $or: [{ userName }, { email }] // jitni values check karni hai yahape daldo
     })
     console.log("existedUser obj: ", existedUser)
     if(existedUser){
@@ -41,7 +55,12 @@ const registerUser = asyncHandler(async(req,res) => { //express k through likhte
     // check for images, check for avatar
     console.log("req.files: ", req.files);
     const avatarLocalPath = req.files?.avatar[0]?.path; //avatar ki first property ka path jo multer ne upload kiya hai local me  
-    const coverImageLocalPath =req.files?.coverImage[0]?.path;
+    //const coverImageLocalPath =req.files?.coverImage[0]?.path;
+    
+    let coverImageLocalPath;
+    if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+        coverImageLocalPath = req.files.coverImage[0].path
+    }
 
     if(!avatarLocalPath){
         throw new ApiError(400, "Avatar file is required")
@@ -58,13 +77,13 @@ const registerUser = asyncHandler(async(req,res) => { //express k through likhte
     }
 
     // create user object - create entry in db. DB se toh bas USER model baat kar raha hai 
-    const user = User.create({
+    const user =  await User.create({
         fullName,
         avatar: avatar.url,
         coverImage: coverImage?.url || "",  
         email,
         password,
-        username: userName.ToLowerCase()
+        username: userName.toLowerCase()
 
 
     })
