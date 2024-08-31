@@ -66,7 +66,9 @@ userSchema.methods.isPasswordCorrect = async function (password) {
     return await bcrypt.compare(password, this.password) //yahape check hoga ki password jo type kiya hia user ne aur encypted password correct hai ki nai 
 }
 
-userSchema.methods.generateAccessToken = function(){
+
+//agar user ka auto logout 15 min me hojata hai toh wapis login karne se acha user se ek endpoint hit karwate hai wahape check hota hai ki user ke pas jo refresh token hai aur database me jo saved refresh token hai woh same hue toh user ko naya access token dete hai to authenticate 
+userSchema.methods.generateAccessToken = function(){ //access token short lived rehta hai aur refresh token long lived 
     return jwt.sign(
         {
             _id: this._id,

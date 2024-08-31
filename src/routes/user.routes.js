@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { registerUser } from "../controllers/user.controller.js";
+import { loginUser, registerUser, logoutUser } from "../controllers/user.controller.js";
 import {upload} from "../middlewares/multer.middleware.js"
+import {verifyJWT} from "../middlewares/auth.middleware.js"
 
 const router = Router()
 
@@ -15,5 +16,10 @@ router.route("/register").post(
     }]),
     registerUser)// http://localhost:8000/users/register par request anepe registerUser method execute hogi
     //register method execute hone se pehele hame avatar, coverimage save karna hai local storage me 
+
+    router.route("/login").post(loginUser)
+
+//secured routes
+router.route("/logout").post(verifyJWT,  logoutUser) //verifyJWT middleware function hai jo logout function execute honese pehele execute hoga which will give us the user information which will eventually be used to logout the use  
 
 export default router

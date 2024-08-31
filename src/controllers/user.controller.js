@@ -3,6 +3,26 @@ import {ApiError} from "../utils/ApiError.js"
 import {User}  from "../models/user.model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
+import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken"
+import mongoose from "mongoose";
+
+const generateAccessAndRefreshTokens = async(userId) =>{
+    try {
+        const user = await User.findById(userId) // user find kiya bsed on user ID(kaunse user ke liye access and refresh token banana hai )
+        const accessToken = user.generateAccessToken()
+        const refreshToken = user.generateRefreshToken()
+
+        //accesstoken toh user ko dedete hai b ut refresh token DB me save karte hai 
+        user.refreshToken = refreshToken
+        await user.save({validateBeforeSave: false}) //save kiya in DB without the validations
+
+        return {accessToken, refreshToken}
+    } catch (error) {
+        throw new ApiError(500, "Something went wrong while generating refresh and access token")
+        
+    }
+}
 
 const registerUser = asyncHandler(async(req,res) => { //express k through likhte hai toh req res rehta hia apne pas 
     // get user details from frontend
@@ -56,7 +76,7 @@ const registerUser = asyncHandler(async(req,res) => { //express k through likhte
     console.log("req.files: ", req.files);
     const avatarLocalPath = req.files?.avatar[0]?.path; //avatar ki first property ka path jo multer ne upload kiya hai local me  
     //const coverImageLocalPath =req.files?.coverImage[0]?.path;
-    
+
     let coverImageLocalPath;
     if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
         coverImageLocalPath = req.files.coverImage[0].path
@@ -106,4 +126,99 @@ const registerUser = asyncHandler(async(req,res) => { //express k through likhte
 
 })
 
-export {registerUser}
+
+const loginUser = asyncHandler(async (req, res) => 
+    {
+        //get the data from req body
+        //username or email based login
+        //find the user
+        //password check karo, if wrong then boldo wrong pwd 
+        //if correct then generate access and refresh token and send to user
+        //send cookie
+
+
+        //get the data from req body
+        const {email , username, password} = req.body
+
+
+        //check if username or email is req
+        if(!username && !email){
+            throw new ApiError(400, "username or email is required ")
+        }
+
+        //now that we have username or email , we need to find that user in mongodb 
+        const user = await User.findOne({
+            $or: [{username}, {email}]
+        })
+
+        // agar user nahi mila matlab that user isnt registered 
+        if(!user){
+            throw new ApiError(404, "User does not exist")
+        }
+
+        //agar user milgaya toh pwd check karo aur login karwao
+        const isPasswordValid = await user.isPasswordCorrect(password)
+
+        
+        if(!isPasswordValid){
+            throw new ApiError(401, "Incorrect Password")
+        }
+
+
+        //yahape access aur refresh token generate hoga 
+        const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id)
+
+        //ab jo loggedin user hai usko cookies me bhejenge
+        const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
+
+        //cookies bhejne ke liye options hote hai 
+        const options = {
+            httpOnly: true, // ye do options se cookies bas server se modifiable hongi, frontend se nahi hoti, though front end pe dikhengi 
+            secure: true 
+        }
+        
+        return res
+        .status(200)
+        .cookie("accessToken", accessToken, options)  // access and refresh token set karliya in cookie
+        .cookie("refreshToken", refreshToken, options)
+        .json(
+            new ApiResponse(200,{
+                user: loggedInUser , accessToken, refreshToken
+            },
+        "User logged in successfully")
+        )
+
+    })
+
+    const logoutUser = asyncHandler(async(req, res) => {
+        //User find kiya using the middleware and refreshtoken hai usko undefined karneka for logout 
+        await User.findByIdAndUpdate(
+            req.user._id,
+            {
+                $unset: {
+                    refreshToken: 1 // this removes the field from document
+                }
+            },
+            {
+                new: true
+            }
+        )
+    
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+    
+        return res
+        .status(200)
+        .clearCookie("accessToken", options) //logout karke cookies clear kardiye
+        .clearCookie("refreshToken", options)
+        .json(new ApiResponse(200, {}, "User logged Out"))
+    }) 
+
+export 
+{
+    registerUser,
+    loginUser,
+    logoutUser
+}
