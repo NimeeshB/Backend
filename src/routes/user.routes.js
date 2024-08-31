@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { loginUser, registerUser, logoutUser } from "../controllers/user.controller.js";
+import { loginUser, registerUser, logoutUser, refreshAccessToken } from "../controllers/user.controller.js";
 import {upload} from "../middlewares/multer.middleware.js"
 import {verifyJWT} from "../middlewares/auth.middleware.js"
 
@@ -19,7 +19,10 @@ router.route("/register").post(
 
     router.route("/login").post(loginUser)
 
-//secured routes
+//secured routes: ye routes hit karne ke liye user logged in hona chaiye 
 router.route("/logout").post(verifyJWT,  logoutUser) //verifyJWT middleware function hai jo logout function execute honese pehele execute hoga which will give us the user information which will eventually be used to logout the use  
+
+//user ka accesstoken expire hone ke baad usko naya accesstoken deneka endpoint 
+router.route("/refreshToken").post( refreshAccessToken )
 
 export default router

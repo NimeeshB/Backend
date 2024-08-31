@@ -190,7 +190,7 @@ const loginUser = asyncHandler(async (req, res) =>
 
     })
 
-    const logoutUser = asyncHandler(async(req, res) => {
+const logoutUser = asyncHandler(async(req, res) => {
         //User find kiya using the middleware and refreshtoken hai usko undefined karneka for logout 
         await User.findByIdAndUpdate(
             req.user._id,
@@ -216,9 +216,70 @@ const loginUser = asyncHandler(async (req, res) =>
         .json(new ApiResponse(200, {}, "User logged Out"))
     }) 
 
+// access token short lived rehta hai, refresh token ka itna hi kaam hai ki user ko baar baar email aur password na dena pade 
+// assuming ek din ka hai access token toh ek din k baad user ko wapis email password dalke re login karna pdega 
+// access token kahi saved nahi hota, refresh token DB me saved rehta hai 
+// agar user ka access token expire hogaya hia toh usko 401 Unauthorized request aayegi, toh frontend wala ye kar sakta hia ki ek endpoint hit karwa sakta hai jahase access token refresh hoga
+// toh woh request ke sath ek refresh token jata hai aur hamare backend me stored hai refresh token which can be used to match the one that has come from the use
+// agar same hai toh dubara se session start karenge
+
+//endpoint jahape user ka token refresh hoga
+const refreshAccessToken = asyncHandler( async ( req, res) => {
+    //user ka refreshtoken cookies me hamne save karke rakha hai toh wahise access karenge
+    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken // agar koi mobile app use kar raha hai toh cookies me se naa aake body se aayega
+
+    if(!incomingRefreshToken){
+        throw new ApiError(401, "Unauthorized request")
+    }
+
+    try {
+        //verifying the incoming token with our token which is stored in DB
+        //user ke pass jo token hai woh encypted token hai aur hame raw token chahiye jo DB me saved hai
+        const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET)
+        
+        //jab bhi refresh token banaya tha tab ._id use kia tha sign karne toh id ki information hogi refreshtoken me 
+        //we will use that information to get the used id and find that user in DB and get that save refresh token to compare it with the incoming refresh token
+    
+        const user = await User.findById(decodedToken?._id)
+    
+        
+        if(!user){
+            throw new ApiError(401, "Invalid refresh token")
+        }
+    
+        if(incomingRefreshToken !== user?.refreshToken){
+            throw new ApiError(401, " refresh token is expired or used")
+        }
+    
+        //options can be stored globally as they are used frequently 
+        const options = {
+            http: true, 
+            secured: true
+        }
+    
+        const {accessToken, newRefreshToken} = await generateAccessAndRefreshTokens(user._id)
+    
+        return res
+        .status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", newRefreshToken, options)
+        .json(
+            new ApiResponse(
+                200,
+                {accessToken, newRefreshToken},
+                "AccessToken refreshed successfully"
+            )
+        )
+    } catch (error) {
+        throw new ApiError(401, error?.message || "Invalid refresh token")
+        
+    }
+})
+
 export 
 {
     registerUser,
     loginUser,
-    logoutUser
+    logoutUser,
+    refreshAccessToken
 }
