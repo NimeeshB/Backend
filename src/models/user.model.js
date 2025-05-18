@@ -71,7 +71,7 @@ userSchema.methods.isPasswordCorrect = async function (password) {
 userSchema.methods.generateAccessToken = function(){ //access token short lived rehta hai aur refresh token long lived 
     return jwt.sign(
         {
-            _id: this._id,
+            _id: this._id, //payload that you want to save in  the token
             email: this.email,
             username: this.username,
             fullName: this.fullName

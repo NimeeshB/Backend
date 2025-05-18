@@ -103,21 +103,21 @@ const registerUser = asyncHandler(async(req,res) => { //express k through likhte
         coverImage: coverImage?.url || "",  
         email,
         password,
-        username: userName.toLowerCase()
+        username: userName.toLowerCase() // saving the username in lowercase in DB 
 
 
     })
 
     //check user bana hai ki nai. Mongo DB har ek entry k sath _id field attach kar deta hai  
     const createdUser = await User.findById(user._id).select(
-        "-password -refreshToken"  // remove refresh token and password from the obj
+        "-password -refreshToken"  // object milne se pehele, remove refresh token and password from the obj
     )   // agar user mila matlab entry create hua 
     console.log("createdUser obj", createdUser)
     if(!createdUser){
-        throw new ApiError(500, "Something went wrond while user registration")
+        throw new ApiError(500, "Something went wrong while user registration")
     }
 
-    //return respnse
+    //Now that user is created successfully, return respnse
     return res.status(201).json(
         new ApiResponse(200, createdUser, "User registered successfully")
     )
@@ -281,5 +281,5 @@ export
     registerUser,
     loginUser,
     logoutUser,
-    refreshAccessToken
+    refreshAccessToken  
 }
