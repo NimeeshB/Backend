@@ -18,7 +18,9 @@ const generateAccessAndRefreshTokens = async(userId) =>{
         await user.save({validateBeforeSave: false}) //save kiya in DB without the validations
 
         return {accessToken, refreshToken}
-    } catch (error) {
+    } 
+    catch (error) 
+    {
         throw new ApiError(500, "Something went wrong while generating refresh and access token")
         
     }
@@ -141,7 +143,7 @@ const loginUser = asyncHandler(async (req, res) =>
         const {email , username, password} = req.body
 
 
-        //check if username or email is req
+        //check if username or email is entered by user
         if(!username && !email){
             throw new ApiError(400, "username or email is required ")
         }
@@ -153,22 +155,23 @@ const loginUser = asyncHandler(async (req, res) =>
 
         // agar user nahi mila matlab that user isnt registered 
         if(!user){
-            throw new ApiError(404, "User does not exist")
+            throw new ApiError(404, "User does not exist! Please register")
         }
 
         //agar user milgaya toh pwd check karo aur login karwao
-        const isPasswordValid = await user.isPasswordCorrect(password)
+        const isPasswordValid = await user.isPasswordCorrect(password) // ye password req.body se jo aaya hai woh hai 
 
         
-        if(!isPasswordValid){
-            throw new ApiError(401, "Incorrect Password")
+        if(!isPasswordValid)
+        {
+        throw new ApiError(401, "Incorrect Password")
         }
 
-
+        //Ab yaha tak agaya control matlab user ka username and pwd sahi hai 
         //yahape access aur refresh token generate hoga 
         const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id)
 
-        //ab jo loggedin user hai usko cookies me bhejenge
+        //ab jo loggedin user hai usko cookies me bhejenge. Password and refresh token chodke baaki fields dedo
         const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
 
         //cookies bhejne ke liye options hote hai 
@@ -182,9 +185,10 @@ const loginUser = asyncHandler(async (req, res) =>
         .cookie("accessToken", accessToken, options)  // access and refresh token set karliya in cookie
         .cookie("refreshToken", refreshToken, options)
         .json(
-            new ApiResponse(200,{
+            new ApiResponse(200,
+                {
                 user: loggedInUser , accessToken, refreshToken
-            },
+                },
         "User logged in successfully")
         )
 
@@ -194,7 +198,7 @@ const logoutUser = asyncHandler(async(req, res) => {
         //User find kiya using the middleware and refreshtoken hai usko undefined karneka for logout 
         await User.findByIdAndUpdate(
             req.user._id,
-            {
+            {         
                 $unset: {
                     refreshToken: 1 // this removes the field from document
                 }
@@ -244,7 +248,7 @@ const refreshAccessToken = asyncHandler( async ( req, res) => {
     
         
         if(!user){
-            throw new ApiError(401, "Invalid refresh token")
+            throw new ApiError(401,  "Invalid refresh token")
         }
     
         if(incomingRefreshToken !== user?.refreshToken){
