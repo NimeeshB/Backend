@@ -79,7 +79,7 @@ This is a feature-rich backend for a video-sharing and subscription-based platfo
 1. **Clone the repo**
 
 ```bash
-git clone https://github.com/NimeeshB/Backend.git
+git clone https://github.com/NimeeshB/CreatorSpace-Backend.git
 cd Backend
 ```
 
