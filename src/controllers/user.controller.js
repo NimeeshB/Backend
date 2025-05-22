@@ -331,7 +331,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
   //ab update karenge fullname and email
   //kause user ka info update karna hai woh find karenge
-  const user = User.findByIdAndUpdate(
+  const user = await User.findByIdAndUpdate(
     req.user?._id,
     { $set: { fullName: fullName, email: email } },
     { new: true } // ye property updated obj return karega
@@ -402,6 +402,89 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "coverImage updated succesfully "));
 });
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  //jab kisi bhi channel ki profile chahiye tab uski url pe jaate hai: /pewdiepie etc, so user url se milega ie params
+  const { username } = req.params;
+
+  if (!username?.trim) {
+    throw new ApiError(400, "Username is missing");
+  }
+
+  //aggregate pipeline return karta hia array
+  const channel = await User.aggregate([
+    {
+      //mostly first pipeline match hoti hai: do table me se kaise match karke data lena hia
+      //It filters documents based on specified conditions
+      //Acts like a WHERE clause in SQL
+      $match: {
+        username: username?.toLowerCase(), // yaha tak humne user find karlia hai jo params me front end se bheja tha(ek user document hai )
+      },
+    },
+    //ab uske subscribers kitne hai woh find karenge
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      //yahape user ne kis kisko subscribe kar rakha hai woh find hoga
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo",
+      },
+    },
+    {
+      //This stage adds two new fields to returnd UserDocument document:
+      $addFields: {
+        subscribersCount: {
+          $size: "$subscribers",
+        },
+        channelsSubscribedToCount: {
+          $size: "$subscribedTo",
+        },
+        //ye wala field determines if the user is subscribed or not to the channel(boolean)
+        //based on this field the front end can show if the subscribe buton should be red or gray
+        isSubscribed: {
+          $cond: {
+            //jo subscribers document aaya hai usme mein hu ki nai
+            if: {
+              $in: [req.user?._id, "$subscribers.subscriber"], // agar rahunga uss document me matlab subscribed hu toh true return hoga else false
+            },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      //these fields will be included in the final document
+      //similar to SELECT clause
+      $project: {
+        fullName: 1,
+        username: 1,
+        subscribersCount: 1,
+        channelsSubscribedToCount: 1,
+        isSubscribed: 1,
+        avatar: 1,
+        coverImage: 1,
+        email: 1,
+      },
+    },
+  ]);
+  if (!channel?.length) {
+    throw new ApiError(404, "channel doesnt exist ");
+  }
+  console.log(channel);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, channel[0], "User channel fetched successfuly"));
+});
+
 export {
   registerUser,
   loginUser,
@@ -411,5 +494,5 @@ export {
   getCurrentUser,
   updateAccountDetails,
   updateUserAvatar,
-  updateUserCoverImage
+  updateUserCoverImage,
 };
